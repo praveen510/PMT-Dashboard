@@ -1,0 +1,497 @@
+{
+  "createOrReplace": {
+    "object": {
+      "database": "ba76d618-43d3-4a2b-b064-1471debff6cb",
+      "table": "All Measures"
+    },
+    "table": {
+      "name": "All Measures",
+      "lineageTag": "1f05d9a6-a53c-4bbc-9272-ae8e417455b8",
+      "columns": [
+        {
+          "name": "Dummy",
+          "dataType": "string",
+          "sourceColumn": "Dummy",
+          "lineageTag": "3e2f7514-1b4d-48bf-bb6b-368fba851bec",
+          "summarizeBy": "none",
+          "annotations": [
+            {
+              "name": "SummarizationSetBy",
+              "value": "Automatic"
+            }
+          ]
+        }
+      ],
+      "partitions": [
+        {
+          "name": "All Measures",
+          "mode": "import",
+          "source": {
+            "type": "m",
+            "expression": [
+              "let",
+              "    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText(\"i44FAA==\", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [Dummy = _t]),",
+              "    #\"Changed Type\" = Table.TransformColumnTypes(Source,{{\"Dummy\", type text}})",
+              "in",
+              "    #\"Changed Type\""
+            ]
+          }
+        }
+      ],
+      "measures": [
+        {
+          "name": "Total Sample",
+          "expression": "CALCULATE(COUNT('RAW Data'[serial_no]))",
+          "formatString": "0",
+          "lineageTag": "b8c19fb3-186f-43f9-96b9-0313f73be4ec"
+        },
+        {
+          "name": "Sample Achieved (Valid+UnderQC)",
+          "expression": "CALCULATE(COUNT('RAW Data'[serial_no]),'RAW Data'[status] IN {\"Valid\",\"Under QC\"})",
+          "formatString": "0",
+          "lineageTag": "396c9482-f961-4ded-9386-9dcb36129fb3"
+        },
+        {
+          "name": "Sample Achieved %",
+          "expression": "DIVIDE([Sample Achieved (Valid+UnderQC)],[Total Sample])*100",
+          "lineageTag": "3bacd7d4-1c95-4fa1-b786-cdfef9d155fb",
+          "annotations": [
+            {
+              "name": "PBI_FormatHint",
+              "value": "{\"isGeneralNumber\":true}"
+            }
+          ]
+        },
+        {
+          "name": "ACs Completed",
+          "expression": [
+            "",
+            "CALCULATE(",
+            "    DISTINCTCOUNT('Raw Data'[ac_name]),",
+            "    FILTER(",
+            "        'Raw Data',",
+            "        'Raw Data'[status] IN {\"Valid\",\"Under QC\"}",
+            "    ),",
+            "    FILTER(",
+            "        'Raw Data',",
+            "        CALCULATE(",
+            "            COUNTROWS('Raw Data'),",
+            "            ALLEXCEPT('Raw Data', 'Raw Data'[ac_name])",
+            "        ) > 950",
+            "    )",
+            ")"
+          ],
+          "formatString": "0",
+          "lineageTag": "ecc3dfd4-b2e4-4e53-8146-c4a2285e2ff3"
+        },
+        {
+          "name": "ACs in Progress",
+          "expression": [
+            "",
+            "VAR ACCount = ",
+            "    CALCULATE(",
+            "        COUNTROWS('Raw Data'),",
+            "        ALLEXCEPT('Raw Data', 'Raw Data'[ac_name])",
+            "    )",
+            "RETURN",
+            "    IF(",
+            "        ACCount > 20 && ACCount < 950,",
+            "        DISTINCT('Raw Data'[ac_name]),",
+            "        CALCULATE(",
+            "            DISTINCTCOUNT('Raw Data'[ac_name]),",
+            "            FILTER(",
+            "                'Raw Data',",
+            "                'Raw Data'[status] IN {\"Valid\",\"Under QC\"}",
+            "            )",
+            "        )",
+            "    )",
+            ""
+          ],
+          "lineageTag": "e2bb0cd1-e814-4f27-a527-34306a45a9ea",
+          "annotations": [
+            {
+              "name": "PBI_FormatHint",
+              "value": "{\"isGeneralNumber\":true}"
+            }
+          ]
+        },
+        {
+          "name": "Measure",
+          "expression": [
+            "",
+            "VAR a =",
+            "    SWITCH (",
+            "        SELECTEDVALUE ( 'AC Summary'[Type] ),",
+            "        \"A\",FORMAT([Total Sample],\"0\"), ",
+            "        \"B\",FORMAT([Sample Achieved (Valid+UnderQC)], \"0\" ),",
+            "        \"C\",FORMAT([Sample Achieved %], \"0\" ),",
+            "        \"D\",FORMAT([ACs Completed], \"0\" ),",
+            "        \"F\",FORMAT([ACs in Progress], \"0\" )",
+            "    )",
+            "RETURN",
+            "    IF ( ISBLANK ( a ) || a = \"\",\"0\", a )"
+          ],
+          "lineageTag": "a7860290-9366-4ac4-af9f-2c5214256277"
+        },
+        {
+          "name": "Status",
+          "expression": "IF([Sample Achieved (Valid+UnderQC)]>900,\"Completed\",\"In Progress\")",
+          "lineageTag": "e0c257a4-b1dd-488a-84e8-98541d5f615c"
+        },
+        {
+          "name": "Interviews After Rejection and Terminated",
+          "expression": [
+            "",
+            "CALCULATE(",
+            "\tCOUNTA('RAW Data'[serial_no]),",
+            "\tNOT('RAW Data'[status] IN {\"Terminated\",\"Rejected\"})",
+            ")"
+          ],
+          "formatString": "0",
+          "lineageTag": "ee77adfa-31d8-4f21-8c06-3ca5cadb94a2",
+          "extendedProperties": [
+            {
+              "type": "json",
+              "name": "MeasureTemplate",
+              "value": {
+                "version": 0,
+                "daxTemplateName": "FilteredMeasure"
+              }
+            }
+          ],
+          "changedProperties": [
+            {
+              "property": "FormatString"
+            }
+          ]
+        },
+        {
+          "name": "GPS Checks Pending",
+          "expression": [
+            "",
+            "CALCULATE(",
+            "\tCOUNTA('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN {\"Under GPS check\"}",
+            ")"
+          ],
+          "formatString": "0",
+          "lineageTag": "2ca1012c-4206-4e57-8253-fd6a764611c6"
+        },
+        {
+          "name": "GPS Rejected",
+          "expression": [
+            "",
+            "CALCULATE(",
+            "\tCOUNTA('RAW Data'[serial_no]),",
+            "    'RAW Data'[reason_reject] IN {\"GPS Rejected\"}",
+            ")"
+          ],
+          "formatString": "0",
+          "lineageTag": "bc486ca8-0468-4b3e-b60f-bb5408016bc9"
+        },
+        {
+          "name": "GPS Passed",
+          "expression": "[Interviews After Rejection and Terminated]-([GPS Checks Pending]+[GPS Rejected])",
+          "formatString": "0",
+          "lineageTag": "01aac033-4302-4805-8e72-3a4d9d6fc258"
+        },
+        {
+          "name": "Waiting for QC Outcome",
+          "expression": [
+            "",
+            "CALCULATE(",
+            "\tCOUNTA('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN {\"Under TBC check\"}",
+            ")"
+          ],
+          "formatString": "0",
+          "lineageTag": "82daa6f7-197e-4437-8e66-a2c75781ac40"
+        },
+        {
+          "name": "Religion Measure",
+          "expression": [
+            "",
+            "VAR a=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {1})",
+            "VAR b=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {2})",
+            "VAR c=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {3})",
+            "VAR d=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {4})",
+            "VAR e=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {5})",
+            "VAR f=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {6})",
+            "VAR g=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {7})",
+            "VAR h=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_religion] IN {8})",
+            "VAR res = SWITCH(",
+            "    SELECTEDVALUE('Def Table for Religion'[resp_religion]),",
+            "    1,a,",
+            "    2,b,",
+            "    3,c,",
+            "    4,d,",
+            "    5,e,",
+            "    6,f,",
+            "    7,g,",
+            "    8,h",
+            ")",
+            "RETURN",
+            "IF(ISBLANK(res),0,res)"
+          ],
+          "formatString": "0",
+          "lineageTag": "2a65e962-b886-4610-a681-63b455c88130"
+        },
+        {
+          "name": "Age Group Measure",
+          "expression": [
+            "",
+            "VAR a = CALCULATE(COUNTA('RAW Data'[serial_no]), 'RAW Data'[Age Group] = \"18-25\")",
+            "VAR b = CALCULATE(COUNTA('RAW Data'[serial_no]), 'RAW Data'[Age Group] = \"26-35\")",
+            "VAR c = CALCULATE(COUNTA('RAW Data'[serial_no]), 'RAW Data'[Age Group] = \"36-50\")",
+            "VAR d = CALCULATE(COUNTA('RAW Data'[serial_no]), 'RAW Data'[Age Group] = \"50+\")",
+            "VAR res = SWITCH(",
+            "    SELECTEDVALUE('Def for Age Group'[age_def]),",
+            "    \"18-25\", a,",
+            "    \"26-35\", b,",
+            "    \"36-50\", c,",
+            "    \"50+\", d,",
+            "    0",
+            ")",
+            "RETURN",
+            "res",
+            ""
+          ],
+          "formatString": "0",
+          "lineageTag": "a88d4e8f-bdf1-452e-8883-880234564acb"
+        },
+        {
+          "name": "Gender Measure",
+          "expression": [
+            "",
+            "VAR a = CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_gender] = 1)",
+            "VAR b = CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_gender] = 2)",
+            "VAR res = SWITCH(",
+            "    SELECTEDVALUE('Def for gender'[gender_def]),",
+            "    \"Male\",a,",
+            "    \"Female\",b,",
+            "    0",
+            ")",
+            "RETURN",
+            "res",
+            ""
+          ],
+          "formatString": "0",
+          "lineageTag": "5aca189c-7c26-4c91-b179-9e02727533dd"
+        },
+        {
+          "name": "Top 5 Castes by Pop%",
+          "lineageTag": "e84202b9-9dd6-4e93-92cc-d57d3a552911"
+        },
+        {
+          "name": "Caste Based Sample",
+          "expression": [
+            "",
+            "CALCULATE(",
+            "    COUNTA('RAW Data'[serial_no]),",
+            "    ALLEXCEPT('RAW Data', 'RAW Data'[ac_name]),",
+            "    ALLEXCEPT('Caste %', 'Caste %'[Caste])",
+            ")",
+            ""
+          ],
+          "formatString": "0",
+          "lineageTag": "49b0dd4d-0c7c-4968-9221-bbaab80ae66c"
+        },
+        {
+          "name": "Social Cat Measure",
+          "expression": [
+            "",
+            "VAR a=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_social_cat] IN {1})",
+            "VAR b=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_social_cat] IN {2})",
+            "VAR c=CALCULATE(COUNTA('RAW Data'[serial_no]),'RAW Data'[resp_social_cat] IN {3})",
+            "VAR res = SWITCH(",
+            "    SELECTEDVALUE('Def of Social Category'[Social Cat]),",
+            "    1,a,",
+            "    2,b,",
+            "    3,c",
+            ")",
+            "RETURN",
+            "IF(ISBLANK(res),0,res)"
+          ],
+          "formatString": "0",
+          "lineageTag": "2aa535fc-0c27-4999-ae07-484ef82aac48"
+        },
+        {
+          "name": "Parametes Measures",
+          "expression": [
+            "",
+            "VAR a = CALCULATE(DISTINCTCOUNT('RAW Data'[int_id]),ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name]))",
+            "",
+            "VAR b = CALCULATE(DISTINCTCOUNT('RAW Data'[ps_name]),ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name]))",
+            "",
+            "VAR c = CALCULATE(DISTINCTCOUNT('RAW Data'[serial_no]),ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name]))",
+            "",
+            "VAR d = ",
+            "CALCULATE(",
+            "    DISTINCTCOUNT('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN { \"Terminated\" },",
+            "    ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name])",
+            ")",
+            "",
+            "VAR e = ",
+            "CALCULATE(",
+            "    DISTINCTCOUNT('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN { \"Rejected\" },",
+            "    'RAW Data'[reason_reject] IN {\"Short Interviews\",\"Duplicate Number\"},",
+            "    ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name])",
+            ")",
+            "",
+            "VAR f = c - (d+e)",
+            "",
+            "VAR g = ",
+            "CALCULATE(",
+            "    DISTINCTCOUNT('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN { \"Under GPS check\" },",
+            "    ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name])",
+            ")",
+            "",
+            "VAR h = ",
+            "CALCULATE(",
+            "\tDISTINCTCOUNT('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN { \"Rejected\" },",
+            "    'RAW Data'[reason_reject] IN {\"GPS Rejected\",\"GPS Bulk\"},",
+            "    ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name])",
+            ")",
+            "",
+            "VAR i = f - (g+h)",
+            "",
+            "VAR l=CALCULATE(",
+            "\tDISTINCTCOUNT('RAW Data'[serial_no]),",
+            "    'RAW Data'[qc] IN {1},",
+            "    'RAW Data'[status] IN {\"Valid\"},",
+            "    ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name])",
+            ")",
+            "",
+            "VAR j = i-l",
+            "",
+            "VAR m=CALCULATE(",
+            "\tDISTINCTCOUNT('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN {\"Under GPS Check\",\"Under Audio Check\",\"Under TBC check\"},",
+            "    ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name])",
+            ")",
+            "",
+            "VAR n=CALCULATE(",
+            "\tDISTINCTCOUNT('RAW Data'[serial_no]),",
+            "    'RAW Data'[status] IN {\"Rejected\"},",
+            "    NOT('RAW Data'[reason_reject]) IN {\"Duplicate Number\",\"GPS Bulk\",\"GPS Rejected\",\"Short Interviews\"},",
+            "    ALLEXCEPT('AC Name with Code','AC Name with Code'[AC Name])",
+            ")",
+            "",
+            "VAR o=j-(m+n)",
+            "",
+            "VAR res=SWITCH(",
+            "    SELECTEDVALUE('Parametes of PMT'[Parametes]),",
+            "    \"No. of Interviewers Worked\",a,",
+            "    \"PS Covered\",b,",
+            "    \"Completed Interviews\",c,",
+            "    \"Terminated Interviews\",d,",
+            "    \"System Rejected\",e,",
+            "    \"Counts After Termination And System Rejection\",f,",
+            "    \"GPS Checks Pending\",g,",
+            "    \"GPS Rejected\",h,",
+            "    \"GPS Passed\",i,",
+            "    \"Waiting for QC Outcome\",\"-\",",
+            "    \"Sent for 1st Level Checks\",j,",
+            "    \"Passed Without Checking\",l,",
+            "    \"1st Level Pending\",m,",
+            "    \"1st Level Failed\",n,",
+            "    \"1st Level Passed\",o,",
+            "",
+            "    0",
+            ")",
+            "RETURN",
+            "IF(ISBLANK(res),0,res)"
+          ],
+          "lineageTag": "3f1c558a-2a42-4713-bdeb-129a4278d772",
+          "annotations": [
+            {
+              "name": "PBI_FormatHint",
+              "value": "{\"isGeneralNumber\":true}"
+            }
+          ]
+        },
+        {
+          "name": "PCs Completed",
+          "expression": [
+            "",
+            "CALCULATE(",
+            "    DISTINCTCOUNT('RAW Data'[pc_name]),",
+            "    FILTER(",
+            "        'Raw Data',",
+            "        'Raw Data'[status] IN {\"Valid\",\"Under QC\"}",
+            "    ),",
+            "    FILTER(",
+            "        'Raw Data',",
+            "        CALCULATE(",
+            "            COUNTROWS('Raw Data'),",
+            "            ALLEXCEPT('Raw Data', 'Raw Data'[pc_name])",
+            "        ) > 950",
+            "    )",
+            ")"
+          ],
+          "formatString": "0",
+          "lineageTag": "64192538-e608-4440-9ab9-eedb27dd0159"
+        },
+        {
+          "name": "PC_Measure",
+          "expression": [
+            "",
+            "VAR a =",
+            "    SWITCH (",
+            "        SELECTEDVALUE ( 'PC Summary'[Type] ),",
+            "        \"A\",FORMAT([Total Sample],\"0\"), ",
+            "        \"B\",FORMAT([Sample Achieved (Valid+UnderQC)], \"0\" ),",
+            "        \"C\",FORMAT([Sample Achieved %], \"0\" ),",
+            "        \"D\",FORMAT([PCs Completed], \"0\" ),",
+            "        \"F\",FORMAT([PCs in Progress], \"0\" )",
+            "    )",
+            "RETURN",
+            "    IF ( ISBLANK ( a ) || a = \"\",\"0\", a )"
+          ],
+          "lineageTag": "8eb62358-a344-4229-9fe9-ac412820cc02"
+        },
+        {
+          "name": "PCs in Progress",
+          "expression": [
+            "",
+            "VAR PCCount = ",
+            "    CALCULATE(",
+            "        COUNTROWS('Raw Data'),",
+            "        ALLEXCEPT('Raw Data', 'Raw Data'[pc_name])",
+            "    )",
+            "RETURN",
+            "    IF(",
+            "        PCCount > 20 && PCCount < 950,",
+            "        DISTINCT('Raw Data'[pc_name]),",
+            "        CALCULATE(",
+            "            DISTINCTCOUNT('Raw Data'[pc_name]),",
+            "            FILTER(",
+            "                'Raw Data',",
+            "                'Raw Data'[status] IN {\"Valid\",\"Under QC\"}",
+            "            )",
+            "        )",
+            "    )",
+            ""
+          ],
+          "lineageTag": "6498197d-65a7-4b52-9813-f73c2d20f3ab",
+          "annotations": [
+            {
+              "name": "PBI_FormatHint",
+              "value": "{\"isGeneralNumber\":true}"
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "name": "PBI_ResultType",
+          "value": "Table"
+        }
+      ]
+    }
+  }
+}
